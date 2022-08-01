@@ -41,6 +41,8 @@ namespace eLibrary.Controllers
         #region GetBookDetailsByID
 
         [HttpGet("{id}")]
+
+        [Authorize(Roles = "Admin , Authour")]
         public async Task<ActionResult<BookDetailsModal>> GetBookDetails(int id)
         {
           if (_context.BookDetails == null)
@@ -62,6 +64,7 @@ namespace eLibrary.Controllers
 
         // PUT: api/BookDetailsModals/5
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin , Authour")]
         public async Task<string> UpdateBookDetails(int id, [FromBody] BookDetailsModal bookDetailsModal)
         {
             bookDetailsModal.Id = id;
@@ -91,8 +94,7 @@ namespace eLibrary.Controllers
         #region InserBookDetails
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
-        [Authorize(AuthenticationSchemes = "Bearer")]
+        [Authorize(Roles = "Admin , Authour")]
         public async Task<string> InserBookDetails([FromBody] BookDetailsModal bookDetailsModal)
         {
           if (_context.BookDetails == null)

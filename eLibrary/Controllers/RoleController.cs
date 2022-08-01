@@ -27,7 +27,7 @@ namespace eLibrary.Controllers
         }
 
         [HttpPost]
-        [Authorize("Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<string> InsertRoles([FromBody] RoleViewModel roleViewModel)
         {
             try
@@ -56,7 +56,7 @@ namespace eLibrary.Controllers
             }
         }
         [HttpPost]
-        [Authorize("Admin")]
+        [Authorize(Roles = "Admin")]
         public async Task<string> DeactivateAuthor(string userId)
         {
             try
