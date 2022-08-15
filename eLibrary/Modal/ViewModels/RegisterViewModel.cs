@@ -27,5 +27,9 @@ namespace eLibrary.Modal.ViewModels
         [JsonPropertyName("lastname")]
         public string LastName { get; set; }
 
+        [Required]
+        [JsonPropertyName("role")]
+        public string Role { get; set; }
+
     }
 }

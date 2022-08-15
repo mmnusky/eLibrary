@@ -7,11 +7,12 @@ namespace eLibrary.Modal
     {
         [JsonIgnore]
         public int Id { get; set; }
+        [JsonPropertyName("bookname")]
         public string? BookName { get; set; }
+
+        [JsonPropertyName("authorname")]
         public string? AuthourName { get; set; }
+        [JsonPropertyName("imgPath")]
         public string? CoverPageURL { get; set; }
-        public string? ISBN_Number { get; set; }
-
-
     }
 }

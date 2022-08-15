@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using eLibrary.Data;
 
@@ -11,9 +12,10 @@ using eLibrary.Data;
 namespace eLibrary.Migrations
 {
     [DbContext(typeof(DataContext))]
-    partial class DataContextModelSnapshot : ModelSnapshot
+    [Migration("20220812015130_relationship2")]
+    partial class relationship2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -104,6 +106,9 @@ namespace eLibrary.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
 
+                    b.Property<string>("ApplicationUserId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("AuthourName")
                         .HasColumnType("nvarchar(max)");
 
@@ -115,7 +120,9 @@ namespace eLibrary.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("BookDetails", (string)null);
+                    b.HasIndex("ApplicationUserId");
+
+                    b.ToTable("BookDetails");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -251,6 +258,13 @@ namespace eLibrary.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("eLibrary.Modal.BookDetailsModal", b =>
+                {
+                    b.HasOne("eLibrary.Modal.ApplicationUser", null)
+                        .WithMany("BookDetailsModal")
+                        .HasForeignKey("ApplicationUserId");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -300,6 +314,11 @@ namespace eLibrary.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("eLibrary.Modal.ApplicationUser", b =>
+                {
+                    b.Navigation("BookDetailsModal");
                 });
 #pragma warning restore 612, 618
         }

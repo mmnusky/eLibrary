@@ -10,6 +10,11 @@ namespace eLibrary.Data
 
         public DbSet<BookDetailsModal> BookDetails { get; set; }
         public DbSet<ApplicationUser> ApplicationUser { get; set; }
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+
+        }
 
     }
 }

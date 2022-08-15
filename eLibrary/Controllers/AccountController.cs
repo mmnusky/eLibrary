@@ -1,9 +1,17 @@
-﻿using eLibrary.Data;
+﻿using AutoMapper;
+using eLibrary.CommonService.Interface;
+using eLibrary.Data;
 using eLibrary.Modal;
 using eLibrary.Modal.ViewModels;
+using eLibrary.Shared;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace eLibrary.Controllers
 {
@@ -16,46 +24,32 @@ namespace eLibrary.Controllers
         private readonly SignInManager<ApplicationUser> signInManager;
         private readonly RoleManager<IdentityRole> roleManager;
         private readonly DataContext dbInstance;
+        private readonly IMapper mapper;
+        private ICommonService _commonService;
 
         public AccountController(UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager, RoleManager<IdentityRole> roleManager, DataContext db)
+            SignInManager<ApplicationUser> signInManager, RoleManager<IdentityRole> roleManager, DataContext db, IMapper map,
+            ICommonService commonService)
         {
             this.userManager = userManager;
             this.signInManager = signInManager;
             this.roleManager = roleManager;
             this.dbInstance = db;
+            this.mapper = map;
+            this._commonService = commonService;
         }
 
         #region register
 
         [HttpPost]
-        public async Task<string> Register(RegisterViewModel model)
+        public async Task<IActionResult> Register(RegisterViewModel model)
         {
             try
             {
-                if (ModelState.IsValid)
-                {
-                    // Copy data from RegisterViewModel to IdentityUser
-                    var user = new ApplicationUser
-                    {
-                        UserName = model.Email,
-                        Email = model.Email
-                    };
-                    var result = await userManager.CreateAsync(user, model.Password);
-                    if (result.Succeeded)
-                    {
-                        return $"{model.FirstName} has been successfully registered to eLibrary";
-                    }
-                    else
-                    {
-                        //Exception handling TBD
-                        return "Failed to register user";
-                    }
-                }
-
-                return "Invalid data has been provided to register";
+                await _commonService.UserRegister(model);
+                return StatusCode(201);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 throw e;
             }
@@ -70,41 +64,38 @@ namespace eLibrary.Controllers
             return "Successfully logged out";
         }
         #endregion
-
+       
         #region login
         [HttpPost]
-        public async Task<string> Login(LoginViewModel model)
+        public async Task<IActionResult> Login(LoginViewModel model)
         {
             try
             {
-                if (ModelState.IsValid)
-                {
-                    var userList = dbInstance.ApplicationUser.ToList();
-                    var user = userList.FirstOrDefault(s => s.Email == model.Email);
-                    if (user == null || user.IsActive == false)
-                    {
-                        var result = await signInManager.PasswordSignInAsync(
-                            model.Email, model.Password, true, false);
-
-                        if (result.Succeeded)
-                        {
-                            return "Successfully logged in";
-                        }
-                    }
-                    else
-                    {
-                        return "In valid user";
-                    }
-
-                    ModelState.AddModelError(string.Empty, "Invalid Login Attempt");
-                }
-
-                return "In valid credential has been provided";
+                var userDetails = await _commonService.UserLogin(model);
+                return Ok(await Task.Run(() => userDetails));
+                    
             }
-            catch(Exception e) {
-                throw e;
+            catch (Exception e)
+            {
+                if (e.Message.Contains(Constant.BlockedUser))
+                {
+                    ErrorModal error = new ErrorModal();
+                    error.StatusCode = 400;
+                    error.Message = Constant.BlockedUser;
+                    return BadRequest(error);
+                }
+                else{
+                    ErrorModal error = new ErrorModal();
+                    error.StatusCode = 400;
+                    error.Message = Constant.InvalidCredential;
+                    return BadRequest(error);
+
+                }
             }
         }
+       
+       
+       
         #endregion
 
     }

@@ -7,7 +7,6 @@ namespace eLibrary.Validator
     {
         public BookDetailsModalValidator()
         {
-            RuleFor(model => model.ISBN_Number).NotNull().NotEmpty();
             RuleFor(model => model.BookName).NotNull().NotEmpty().MaximumLength(20);
             RuleFor(model => model.AuthourName).NotNull().NotEmpty().MaximumLength(20);
             RuleFor(model => model.CoverPageURL).NotNull().NotEmpty();

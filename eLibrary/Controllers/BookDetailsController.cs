@@ -8,6 +8,10 @@ using Microsoft.EntityFrameworkCore;
 using eLibrary.Data;
 using eLibrary.Modal;
 using Microsoft.AspNetCore.Authorization;
+using System.Net.Http.Headers;
+using eLibrary.Repository.Interface;
+using eLibrary.Modal.ViewModels;
+using eLibrary.Shared;
 
 namespace eLibrary.Controllers
 {
@@ -16,11 +20,13 @@ namespace eLibrary.Controllers
     public class BookDetailsController : ControllerBase
     {
         private readonly DataContext _context;
+        private IRepositoryWrapper _repository;
         #region public method
         #region constructor
-        public BookDetailsController(DataContext context)
+        public BookDetailsController(DataContext context, IRepositoryWrapper repository)
         {
             _context = context;
+            _repository = repository;
         }
 
         #endregion
@@ -30,33 +36,81 @@ namespace eLibrary.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<BookDetailsModal>>> GetBookDetails()
         {
-          if (_context.BookDetails == null)
-          {
-              return NotFound();
-          }
-            return await _context.BookDetails.ToListAsync();
+            try
+            {
+                return await _repository.BookDetails.GetAll();
+            }
+            catch(Exception)
+            {
+                ErrorModal error = new ErrorModal();
+                error.StatusCode = 400;
+                error.Message = Constant.GetAllBookError;
+                return BadRequest(error);
+            }
+        }
+        #endregion
+
+        #region image upload
+
+        [HttpPost, DisableRequestSizeLimit]
+        public async Task<IActionResult> Upload()
+        {
+            try
+            {
+                var formCollection = await Request.ReadFormAsync();
+                var file = formCollection.Files.First();
+                var folderName = Path.Combine("Resources", "Images");
+                var pathToSave = Path.Combine(Directory.GetCurrentDirectory(), folderName);
+                if (file.Length > 0)
+                {
+                    var fileName = ContentDispositionHeaderValue.Parse(file.ContentDisposition).FileName.Trim('"');
+                    var fullPath = Path.Combine(pathToSave, fileName);
+                    var dbPath = Path.Combine(folderName, fileName);
+                    using (var stream = new FileStream(fullPath, FileMode.Create))
+                    {
+                        file.CopyTo(stream);
+                    }
+                    return Ok(new { dbPath });
+                }
+                else
+                {
+                    return BadRequest();
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex}");
+            }
         }
         #endregion
 
         #region GetBookDetailsByID
 
         [HttpGet("{id}")]
-
-        [Authorize(Roles = "Admin , Authour")]
         public async Task<ActionResult<BookDetailsModal>> GetBookDetails(int id)
         {
-          if (_context.BookDetails == null)
-          {
-              return NotFound();
-          }
-            var bookDetailsModal = await _context.BookDetails.FindAsync(id);
-
-            if (bookDetailsModal == null)
+            try
             {
-                return NotFound();
-            }
+                if (_context.BookDetails == null)
+                {
+                    return NotFound();
+                }
+                var bookDetailsModal = await _repository.BookDetails.Get(id);
 
-            return bookDetailsModal;
+                if (bookDetailsModal == null)
+                {
+                    return NotFound();
+                }
+
+                return bookDetailsModal;
+            }
+            catch (Exception)
+            {
+                ErrorModal error = new ErrorModal();
+                error.StatusCode = 400;
+                error.Message = Constant.GetByIdError;
+                return BadRequest(error);
+            }
         }
         #endregion
 
@@ -64,70 +118,77 @@ namespace eLibrary.Controllers
 
         // PUT: api/BookDetailsModals/5
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin , Authour")]
-        public async Task<string> UpdateBookDetails(int id, [FromBody] BookDetailsModal bookDetailsModal)
+        [Authorize(AuthenticationSchemes = "Bearer", Roles = "Admin,Author")]
+        public async Task<IActionResult> UpdateBookDetails(int id, [FromBody] BookDetailsModal bookDetailsModal)
         {
-            bookDetailsModal.Id = id;
-
-            _context.Entry(bookDetailsModal).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                bookDetailsModal.Id = id;
+                await _repository.BookDetails.Update(bookDetailsModal);
+                return Ok();
             }
-            catch (DbUpdateConcurrencyException)
+            catch (Exception ex)
             {
-                if (!BookDetailsExists(id))
-                {
-                    return "Failed to update book details";
-                }
-                else
-                {
-                    throw;
-                }
+                ErrorModal error = new ErrorModal();
+                error.StatusCode = 400;
+                error.Message = Constant.UpdateBookError;
+                return BadRequest(error);
             }
-
-            return "Book details updated successfully";
         }
         #endregion
 
         #region InserBookDetails
 
         [HttpPost]
-        [Authorize(Roles = "Admin , Authour")]
-        public async Task<string> InserBookDetails([FromBody] BookDetailsModal bookDetailsModal)
+        [Authorize(AuthenticationSchemes = "Bearer", Roles = "Admin,Author")]
+        public async Task<IActionResult> InserBookDetails([FromBody] BookDetailsModal bookDetailsModal)
         {
-          if (_context.BookDetails == null)
-          {
-                return "Book details is set to empty";
-          }
-            _context.BookDetails.Add(bookDetailsModal);
-            await _context.SaveChangesAsync();
-
-            return "Book details inserted successfully";
+            try
+            {
+                if (_context.BookDetails == null)
+                {
+                    return BadRequest();
+                }
+                await _repository.BookDetails.Add(bookDetailsModal);
+                return Ok();
+            }
+            catch (Exception)
+            {
+                ErrorModal error = new ErrorModal();
+                error.StatusCode = 400;
+                error.Message = Constant.InsertBookDetailslError;
+                return BadRequest(error);
+            }
         }
 
         #endregion
 
         #region DeleteBookDetails
-         
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteBookDetails(int id)
         {
-            if (_context.BookDetails == null)
+            try
             {
-                return NotFound();
+                if (_context.BookDetails == null)
+                {
+                    return NotFound();
+                }
+                var bookDetailsModal = await _repository.BookDetails.Get(id);
+                if (bookDetailsModal == null)
+                {
+                    return NotFound();
+                }
+                await _repository.BookDetails.Delete(id);
+                return NoContent();
             }
-            var bookDetailsModal = await _context.BookDetails.FindAsync(id);
-            if (bookDetailsModal == null)
+            catch (Exception)
             {
-                return NotFound();
+                ErrorModal error = new ErrorModal();
+                error.StatusCode = 400;
+                error.Message = Constant.DelateBookError;
+                return BadRequest(error);
             }
-
-            _context.BookDetails.Remove(bookDetailsModal);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
         }
         #endregion
 

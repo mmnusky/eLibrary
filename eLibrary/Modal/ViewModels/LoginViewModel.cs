@@ -11,8 +11,5 @@ namespace eLibrary.Modal.ViewModels
         [Required]
         [DataType(DataType.Password)]
         public string Password { get; set; }
-
-        [Display(Name = "Is Active")]
-        public bool IsActive { get; set; }
     }
 }

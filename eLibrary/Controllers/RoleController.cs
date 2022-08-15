@@ -1,10 +1,14 @@
-﻿using eLibrary.Data;
+﻿using eLibrary.CommonService.Interface;
+using eLibrary.Data;
 using eLibrary.Modal;
 using eLibrary.Modal.ViewModels;
+using eLibrary.Repository.Interface;
+using eLibrary.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Http.Headers;
 
 namespace eLibrary.Controllers
 {
@@ -13,73 +17,120 @@ namespace eLibrary.Controllers
     public class RoleController : ControllerBase
     {
         private readonly UserManager<ApplicationUser> userManager;
-        private readonly SignInManager<ApplicationUser> signInManager;
         private readonly RoleManager<IdentityRole> roleManager;
         private readonly DataContext dbInstance;
+        private IRepositoryWrapper _repository;
+        private ICommonService _commonService;
 
-        public RoleController(UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager, RoleManager<IdentityRole> roleManager, DataContext db)
+        public RoleController(UserManager<ApplicationUser> userManager, IRepositoryWrapper repository,
+            RoleManager<IdentityRole> roleManager, DataContext db,
+            ICommonService commonService)
         {
             this.userManager = userManager;
-            this.signInManager = signInManager;
             this.roleManager = roleManager;
             this.dbInstance = db;
+            this._repository = repository;
+            this._commonService = commonService;
         }
-
+     
         [HttpPost]
-        [Authorize(Roles = "Admin")]
-        public async Task<string> InsertRoles([FromBody] RoleViewModel roleViewModel)
+        [Authorize(AuthenticationSchemes = Constant.Bearer, Roles = Constant.Admin)]
+        public async Task<IActionResult> DeactivateAuthor([FromBody] AuthorDeactivateRequest deactivateRequest)
         {
             try
             {
-                //bool cc = User.Identity.IsAuthenticated;
-
-                var user = dbInstance.ApplicationUser.Where(s => s.Email == roleViewModel.UserEmail).Single();
-                var role = new IdentityRole
+                if (!string.IsNullOrEmpty(deactivateRequest.Email))
                 {
-                    Id = user.Id,
-                    Name = roleViewModel.RoleName
-                };
-                var isRoleExist = await roleManager.RoleExistsAsync(roleViewModel.RoleName);
-                if (!isRoleExist)
-                {
-                    await roleManager.CreateAsync(role);
-                }
-
-                await userManager.AddToRoleAsync(user, roleViewModel.RoleName);
-                return $"{roleViewModel.RoleName} role has been added to {user.Email} sucessfully";
-            }
-            catch (Exception ex)
-            {
-                //log exception TBD
-                throw ex;
-            }
-        }
-        [HttpPost]
-        [Authorize(Roles = "Admin")]
-        public async Task<string> DeactivateAuthor(string userId)
-        {
-            try
-            {
-                if (!string.IsNullOrEmpty(userId))
-                {
-                    //var user = userManager.FindByIdAsync(userId).sing;
-                    var user = dbInstance.ApplicationUser.Where(s => s.Id == userId).Single();
-                    user.IsActive = true;
-                    await userManager.UpdateAsync(user);
-                    return $"User deactivated successfully";
+                    await _commonService.Deactivate(deactivateRequest.Email);
+                    return Ok();
                 }
                 else
                 {
-                    throw new Exception("User id is null or empty");
+                    throw new Exception(Constant.EmptyOrNullUser);
                 }
             }
             catch (Exception ex) 
             {
-                //log exception TBD
-                throw ex;
+                if (ex.Message.Contains(Constant.EmptyOrNullUser))
+                {
+                    ErrorModal error = new ErrorModal();
+                    error.StatusCode = 404;
+                    error.Message = Constant.EmptyOrNullUser;
+                    return NotFound(error);
+                }
+                else
+                {
+                    ErrorModal error = new ErrorModal();
+                    error.StatusCode = 400;
+                    error.Message = Constant.StatusChangeError;
+                    return BadRequest(error);
+                }
+                
             }
 
         }
+        [HttpGet]
+        [Authorize(AuthenticationSchemes = Constant.Bearer, Roles = Constant.Admin)]
+        public async Task<IActionResult> GetAllAuthor()
+        {
+            try
+            {
+                var allAuthor = _commonService.GetAllAuthors();
+                return Ok(await Task.Run(() => allAuthor));
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains(Constant.NoActiveAuthorFound))
+                {
+                    ErrorModal error = new ErrorModal();
+                    error.StatusCode = 404;
+                    error.Message = Constant.NoAuthorFound;
+                    return NotFound(error);
+                }
+                else
+                {
+                    ErrorModal error = new ErrorModal();
+                    error.StatusCode = 400;
+                    error.Message = Constant.GetAllAuthorError;
+                    return BadRequest(error);
+                }
+            }
+
+        }
+        [HttpGet]
+        [Authorize(AuthenticationSchemes = Constant.Bearer, Roles = Constant.AdminAuthor)]
+        public async Task<IActionResult> GetAllActiveAuthor()
+        {
+            try
+            {
+                var allAuthor = await userManager.GetUsersInRoleAsync(Constant.Author);
+                var activeAuthor = allAuthor.Where(act => act.IsDeactivated == false);
+                if (activeAuthor.Count() == 0)
+                {
+                    throw new Exception(Constant.NoActiveAuthorFound);
+                }
+
+                return Ok(await Task.Run(() => activeAuthor));
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains(Constant.NoActiveAuthorFound))
+                {
+                    ErrorModal error = new ErrorModal();
+                    error.StatusCode = 404;
+                    error.Message = Constant.NoActiveAuthorFound;
+                    return BadRequest(error);
+                }
+                else
+                {
+                    ErrorModal error = new ErrorModal();
+                    error.StatusCode = 400;
+                    error.Message = Constant.GetActiveAuthorError;
+                    return BadRequest(error);
+                }
+            }
+
+        }
+
     }
 }
